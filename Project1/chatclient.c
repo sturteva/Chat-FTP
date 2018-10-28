@@ -5,6 +5,8 @@
 /*The bulk of the logic of this program is from Oregon State University's 
  * CS344 - Operating Systems class. Lecture 4.2, slides 21 & 22*/
 
+/*Handling white-space with scanf found here: https://bit.ly/2PoV3Te*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -47,36 +49,60 @@ int initiateContact(int portNumber,char* hostname){
 	return socketFD;	
 }
 
-void sendMessage(char handle[],int socketFD){
+int sendMessage(char handle[],int socketFD){
 
 	int charsWritten;
 	char buffer[512];
-	char message[501];
+	char message[500];
 	
 	memset(buffer, '\0',sizeof(buffer));
 	memset(message, '\0',sizeof(message));
 
 	printf("%s",handle);
-	fgets(message,sizeof(message-1),stdin);
+	//clear any previous stdin buffer
+	scanf("%[^\n]s",message);
+	while((getchar() != '\n'));//clear the stdin buffer
 	message[strcspn(message,"\n")] = '\0';
 
 	//Places the handle and message into a single buffer
 	snprintf(buffer,sizeof(buffer), "%s%s",handle,message);
+	
+	char * quit = "\\quit";
+
+	if(strcmp(message,quit) == 0) 
+		return 0;
 
 	charsWritten = send(socketFD,buffer,strlen(buffer),0);
 
 	if(charsWritten < 0) error("CLIENT: ERROR writing to socket");
 	if(charsWritten < strlen(buffer))
 		printf("CLIENT: WARNING: Not all data written to socket!\n");	
+	
+
+	return 1; 
 		
+}
+
+int receiveMessage(int socketFD){
+
+	int charsRead;
+	char buffer[512];
+
+	memset(buffer, '\0', sizeof(buffer));
+	charsRead = recv(socketFD, buffer,sizeof(buffer)-1,0);
+
+	if (charsRead == 0)
+		return 0;
+	printf("%s\n",buffer);
+	return 1;
 }
 
 int main(int argc, char *argv[])
 {
 
 	int socketFD,portNumber, charsWritten, charsRead;
-	char buffer[512];
-	char handle[10];
+	char handle[11];
+	char message[500];
 
 	if(argc <3){
 		fprintf(stderr, "USAGE: %s hostname port\n", argv[0]); 
@@ -88,31 +114,26 @@ int main(int argc, char *argv[])
 	socketFD = initiateContact(portNumber,hostname);
 
 	printf("Please enter your handle(No more than 9 characters): ");
-	memset(handle, '\0',sizeof(buffer));
-	fgets(handle,sizeof(handle)-1,stdin);
+	memset(handle, '\0',sizeof(handle));
+
+	scanf("%[^\n]s",handle);
+	while((getchar() != '\n')); //Flush stdin
 	handle[strcspn(handle, "\n")] = '>'; //Removes trailing \n
-	sendMessage(handle,socketFD);
-	
 
-/*
-	//Get input message from user
-	printf("ENTER MESSAGE, press ENTER\n");
-	memset(buffer, '\0',sizeof(buffer));
-	fgets(buffer, sizeof(buffer) -1, stdin);
-	buffer[strcspn(buffer, "\n")] = '>'; // Remove the trailing \n that fgets adds	
+	int sendGoing = 1;
+	int recvGoing = 1;
+	while(sendGoing && recvGoing){
+		sendGoing = sendMessage(handle,socketFD);
 
-	//Send message to server
-	charsWritten = send(socketFD,buffer, strlen(buffer), 0);
-	if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+		if(sendGoing != 1)
+			break;
+		recvGoing = receiveMessage(socketFD);
+		
+	}
 
-	if(charsWritten < strlen(buffer))
-		printf("CLIENT: WARNING: Not all data written to socket!\n");
-*/
-	//Get return message from server
-	memset(buffer, '\0', sizeof(buffer)); //clear out buffer
-	charsRead = recv(socketFD, buffer,sizeof(buffer)-1,0);
-	if(charsRead <0) error("CLIENT:ERROR reading from socket");
-	printf("CLIENT: MSG I GOT: %s\n",buffer);
+	if(recvGoing == 0){
+		printf("Server Disconnected\n");
+	}
 	close(socketFD);
 
 	return 0;

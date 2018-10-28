@@ -23,16 +23,42 @@ def startUp():
 
 	print "Server ready"
 	return serverSocket
+
+def sendMessage(connectionSocket,handle,end):
+	message = raw_input(handle)
+
+	if message == end:
+		return message
+
+	fullMessage = handle+message
+	connectionSocket.send(fullMessage)
+
+	return message
 	
+
+	
+def receiveMessage(connectionSocket):
+	sentence = connectionSocket.recv(512);
+	print sentence
+	return sentence
+		
+		
 #Driver Code
 
+handle = raw_input("What is your handle?(9 characters or less:")
+handle = handle+">"
 serverSocket = startUp()
 
+end = "\quit"
 while 1:
 	connectionSocket, addr = serverSocket.accept()
+	message = "start"
+	while message != end:
+		data = receiveMessage(connectionSocket)
+		if not data: 
+			print "Client has Disconnected"
+			break
+		message = sendMessage(connectionSocket,handle,end)
 
-	sentence = connectionSocket.recv(1024)
-	capitalizedSentence = sentence.upper()
-	connectionSocket.send(capitalizedSentence)
 	connectionSocket.close()
 

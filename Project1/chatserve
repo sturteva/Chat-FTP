@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+#Author: Andrew Sturtevant
+#Description: This is a simply chat server for CS372
+
+#This code was heavily borrowed and influenced by Oregon State University's
+#CS372 Lecture 15 Python TCP Server code example
+
+#Basic setup also influence by: https://docs.python.org/2/library/socket.html
+
+import sys
+import socket
+
+
+
+#Start-Up
+def startUp():
+
+	serverPort = int(sys.argv[1])
+	HOST = ''
+	serverSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+	serverSocket.bind((HOST,serverPort))
+	serverSocket.listen(1)
+
+	print "Server ready"
+	return serverSocket
+	
+#Driver Code
+
+serverSocket = startUp()
+
+while 1:
+	connectionSocket, addr = serverSocket.accept()
+
+	sentence = connectionSocket.recv(1024)
+	capitalizedSentence = sentence.upper()
+	connectionSocket.send(capitalizedSentence)
+	connectionSocket.close()
+

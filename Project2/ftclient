@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+#Author: Andrew Sturtevant
+#Description: This is a file transfer client
+
+#Client set-up influenced by: https://pymotw.com/2/socket/tcp.html
+
+import sys
+import socket
+
+
+def initiateContact():
+
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	serverName = sys.argv[1]
+	connectionPort = int(sys.argv[2])
+	server_address = (serverName,connectionPort)
+	print 'connectiong to %s port %s' % server_address
+	sock.connect(server_address)
+
+	return sock  
+		
+
+
+#Driver Code
+#NEEDS: We will want to check to ensure that there are 4 arguments from the
+#start.  They will be: Server's Hostname, Connection Port, Command, Data Port
+connectionSocket = initiateContact()
+message = "This is a test message"
+connectionSocket.sendall(message)
+
+#test code can be deleted later
+amount_received = 0
+amount_expected = len(message)
+
+while amount_received < amount_expected:
+	data = connectionSocket.recv(16)
+	amount_received += len(data)
+	print >> sys.stderr, 'received "%s"' % data

@@ -10,11 +10,15 @@ import socket
 
 def initiateContact():
 
+	command = sys.argv[3]
+	if command != "-g" and command != "-l":
+		print "Invalid Command"
+		return 0
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	serverName = sys.argv[1]
 	connectionPort = int(sys.argv[2])
 	server_address = (serverName,connectionPort)
-	print 'connectiong to %s port %s' % server_address
+#	print 'connectiong to %s port %s' % server_address
 	sock.connect(server_address)
 
 	return sock  
@@ -25,14 +29,14 @@ def makeRequest(connectionSocket):
 
 	message = ''
 	dataPort = 0
+	command = sys.argv[3]
 
-	if len(sys.argv) == 5:
-		command = sys.argv[3]
+	if command == "-l" and len(sys.argv) == 5:
 		dataPort = int(sys.argv[4])
-		message = "%s + %d" % (command,dataPort)
+		message = "%s %d" % (command,dataPort)
 
 
-	elif len(sys.argv) == 6:
+	elif command == "-g" and len(sys.argv) == 6:
 		command = sys.argv[3]
 		fileName = sys.argv[4]
 		dataPort = int(sys.argv[5])
@@ -46,15 +50,19 @@ def makeRequest(connectionSocket):
 	dataSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 	dataSocket.bind((HOST,dataPort))
 	connectionSocket.send(message)
-	dataSocket.listen(1)
+	dataSocket.listen(2)
 	
 	return dataSocket
 
 def receiveData(connectionSocket,dataSocket):
 
-
+	theSocket, addr = dataSocket.accept()
 	if len(sys.argv) == 5:
-		print "Got here 5"		
+		hostName = sys.argv[1]
+		dataPort = sys.argv[4]
+		print ("Receiving directory structure from %s : %s" % (hostName,dataPort))
+		direct = theSocket.recv(1024);
+		print direct		
 	elif len(sys.argv) == 6:
 		print "Got here 6"
 
@@ -62,6 +70,9 @@ def receiveData(connectionSocket,dataSocket):
 #NEEDS: We will want to check to ensure that there are 4 arguments from the
 #start.  They will be: Server's Hostname, Connection Port, Command, Data Port
 connectionSocket = initiateContact()
+if connectionSocket == 0:
+	sys.exit()
+
 dataSocket = makeRequest(connectionSocket)
 receiveData(connectionSocket,dataSocket)
 

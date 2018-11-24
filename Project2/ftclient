@@ -18,21 +18,52 @@ def initiateContact():
 	sock.connect(server_address)
 
 	return sock  
-		
 
+
+
+def makeRequest(connectionSocket):
+
+	message = ''
+	dataPort = 0
+
+	if len(sys.argv) == 5:
+		command = sys.argv[3]
+		dataPort = int(sys.argv[4])
+		message = "%s + %d" % (command,dataPort)
+
+
+	elif len(sys.argv) == 6:
+		command = sys.argv[3]
+		fileName = sys.argv[4]
+		dataPort = int(sys.argv[5])
+		message = "%s %d %s" % (command,dataPort,fileName)
+	else:
+		print "Not the correct # of arguments"
+
+	#Sending message to server to connect to dataport
+	
+	HOST = ''
+	dataSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+	dataSocket.bind((HOST,dataPort))
+	connectionSocket.send(message)
+	dataSocket.listen(1)
+	
+	return dataSocket
+
+def receiveData(connectionSocket,dataSocket):
+
+
+	if len(sys.argv) == 5:
+		print "Got here 5"		
+	elif len(sys.argv) == 6:
+		print "Got here 6"
 
 #Driver Code
 #NEEDS: We will want to check to ensure that there are 4 arguments from the
 #start.  They will be: Server's Hostname, Connection Port, Command, Data Port
 connectionSocket = initiateContact()
-message = "This is a test message"
-connectionSocket.sendall(message)
+dataSocket = makeRequest(connectionSocket)
+receiveData(connectionSocket,dataSocket)
 
-#test code can be deleted later
-amount_received = 0
-amount_expected = len(message)
-
-while amount_received < amount_expected:
-	data = connectionSocket.recv(16)
-	amount_received += len(data)
-	print >> sys.stderr, 'received "%s"' % data
+connectionSocket.close()
+dataSocket.close()

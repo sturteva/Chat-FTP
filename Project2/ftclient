@@ -6,7 +6,7 @@
 
 import sys
 import socket
-
+import os
 
 def initiateContact():
 
@@ -56,15 +56,49 @@ def makeRequest(connectionSocket):
 
 def receiveData(connectionSocket,dataSocket):
 
-	theSocket, addr = dataSocket.accept()
+	
 	if len(sys.argv) == 5:
 		hostName = sys.argv[1]
 		dataPort = sys.argv[4]
+		theSocket, addr = dataSocket.accept()
 		print ("Receiving directory structure from %s : %s" % (hostName,dataPort))
 		direct = theSocket.recv(1024);
-		print direct		
+		print direct	
+		theSocket.close()	
 	elif len(sys.argv) == 6:
-		print "Got here 6"
+		hostName = sys.argv[1]
+		connectionPort = sys.argv[2]
+		dataPort = sys.argv[5]
+		fileName = sys.argv[4]
+		sentence = connectionSocket.recv(1024)
+		
+		
+		if "FILE NOT FOUND" in sentence:
+
+			print ("%s:%s says %s" % (hostName,connectionPort,sentence))
+		else:
+			theSocket,addr = dataSocket.accept()
+			print ("Receiving \"%s\" from %s:%s" % (fileName,hostName,dataPort)) 
+			##Checking Directory help found here:
+			#https://therenegadecoder.com/code/how-to-check-if-a-file-exists-in-python/
+			exists = os.path.isfile(fileName)
+			if exists:
+				myPID = os.getpid()
+				print ("File exists, adding PID: %d" % (myPID))
+				fileName = fileName + str(myPID)
+			
+			f = open(fileName,'w+')
+			f.close()
+			f = open(fileName,'a')
+			data = 'test'	
+			while data != 0:	
+				data = theSocket.recv(10000000);
+				f.write(data);
+			f.close()
+			theSocket.close()			
+
+				
+			
 
 #Driver Code
 #NEEDS: We will want to check to ensure that there are 4 arguments from the

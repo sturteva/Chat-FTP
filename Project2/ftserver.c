@@ -84,12 +84,8 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 
 	if(charsRead < 0) error("ERROR reading from socket");
 
-	//Test line
-	//printf("SERVER from client: \"%s\"\n", buffer);
-
 	char* token = strtok(commandBuffer," " );
 
-	printf("token: %s\n",token);
 	if(strcmp(token,"-l") == 0){
 		dataPort = atoi(strtok(NULL," "));
 		printf("List directory requested on port %d.\n",dataPort);
@@ -117,8 +113,62 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 	}
 
 	else if(strcmp(token,"-g") == 0){
-		printf("Get command Received\n");
+		dataPort = atoi(strtok(NULL," "));
+		char* fileName = strtok(NULL," ");
+		printf("File \"%s\" requested on port %d.\n",fileName,dataPort);
+
+		dataFD = initiateContact(dataPort,(char*)client);
+		FILE *fp;
+		fp = fopen(fileName,"r");
+
+		if(fp == NULL){
+			printf("File not found. Sending error message to %s:%d\n",client,connectionPort);
+			char* errMsg = "FILE NOT FOUND";
+			charsRead = send(establishedConnectionFD,errMsg,14 ,0);
+
+			if(charsRead <0) error("Server: Error sending error msg");
+		}
+
+		else{
+			printf("Sending \"%s\" to %s:%d\n",fileName,client,dataPort);
+			char* msg = "Receiving";
+			charsRead = send(establishedConnectionFD,msg,9,0);
+
+			if(charsRead < 0) error("Server: Error sending Receiving");
+	
+			char* buffer = malloc(10000000);
+			int buffercount = 0;
+			char c;
+			
+			while(1){
+				
+				c = fgetc(fp);
+			
+				if(c == EOF){
+					printf("testEOF\n");
+					break;}
+				else{
+				buffer[buffercount] = c;
+				buffercount++;
+				}
+			}
+
+			int charsWritten = 0;
+			while(charsWritten < strlen(buffer)){
+				charsWritten += send(dataFD,buffer,strlen(buffer),0);
+
+				if(charsWritten <0) error("SERVER: Writing file to socket");
+			}
+
+			charsWritten = send(dataFD,0,0,0);
+			free(buffer);
+		}
+
+
+		
 	}
+
+	close(dataFD);
 }
 int main(int argc, char *argv[])
 {
@@ -149,10 +199,6 @@ int main(int argc, char *argv[])
 	getnameinfo(&clientAddress,sizeof(clientAddress),host,sizeof(host),service,sizeof(service),0); 
 	printf("Connection from %s\n",host);
 	handleRequest(establishedConnectionFD,portNumber,host);
-
-	/* Send a Success message back to the client*/
-	charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
-	if (charsRead < 0) error("ERROR writing to socket");
 
 	close(establishedConnectionFD); // Close the existing socket which is connected to the client
 	}

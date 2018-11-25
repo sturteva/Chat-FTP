@@ -18,6 +18,8 @@
 
 void error(const char *msg) { perror(msg); exit(1); } // Error function used for reporting issues
 
+/*This sets up the server, it needs the portNumber that was a command line 
+ * argument.It is going to return the socket that it sets up to list*/
 int startUp(portNumber){
 	struct sockaddr_in serverAddress;
 	int listenSocketFD;
@@ -39,6 +41,9 @@ int startUp(portNumber){
 }
 
 /*Pulled from Project1 for CS372*/
+/*This function will set up a client-side socket, with the "server's" hostname
+ * This is to set up the dataPort when it is needed
+ * It returns the socket that it sets up as a client socket*/
 int initiateContact(int portNumber, char* hostname){
 	int socketFD;
 	struct sockaddr_in serverAddress;
@@ -51,7 +56,7 @@ int initiateContact(int portNumber, char* hostname){
 	serverAddress.sin_port = htons(portNumber);
         serverHostInfo = gethostbyname(hostname);
         if(serverHostInfo == NULL){
-		fprintf(stderr, "CLIENT: ERROR, no such host\n");
+		fprintf(stderr, "Server: ERROR, no such host\n");
                 exit(0);
        }
 
@@ -59,14 +64,23 @@ int initiateContact(int portNumber, char* hostname){
 
 	//Set up the socket
 	socketFD = socket(AF_INET,SOCK_STREAM,0);
-	if(socketFD < 0) error("CLIENT:ERROR opening socket");
+	if(socketFD < 0) error("Server:ERROR opening socket");
 	//Connect to Server
 	if(connect(socketFD,(struct sockaddr*)&serverAddress,sizeof(serverAddress)) < 0)
-	error("CLIENT: ERROR connecting");
+	error("Server: ERROR connecting");
 	                                                                                                       
 		return socketFD;
 
 }
+
+/*This function does a lot of the heavy lifting of handling the specific
+ * request of the client.  In the future, it can probably be refactored to 
+ * basically just determine the TYPE of request and than call a function to 
+ * handle the specific request.  
+ *
+ * RIght now though, it needs client's hostname, the connectionPort# and the 
+ * actual socket that has started the connection with the client 
+ * (establisedConnectionFD)*/
 void handleRequest(int establishedConnectionFD,int connectionPort, char client[]){
 	
 	char commandBuffer[1024];
@@ -86,6 +100,7 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 
 	char* token = strtok(commandBuffer," " );
 
+	/*This is what happens when the list command is received*/
 	if(strcmp(token,"-l") == 0){
 		dataPort = atoi(strtok(NULL," "));
 		printf("List directory requested on port %d.\n",dataPort);
@@ -93,6 +108,8 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 
 		d = opendir(".");
 
+		/*Goes through the directory, writing all of the names into 
+ 		*directory buffer*/ 
 		if(d){
 			while((dir = readdir(d)) != NULL){
 				strcat(dirBuffer,dir->d_name);
@@ -102,6 +119,7 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 		}
 		int charsWritten = 0;
 
+		/*This sends the directory to the client*/
 		while(charsWritten < strlen(dirBuffer)){
 			charsWritten+= send(dataFD,dirBuffer,strlen(dirBuffer),0);
 
@@ -112,6 +130,7 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 			
 	}
 
+	/*Get Command received*/
 	else if(strcmp(token,"-g") == 0){
 		dataPort = atoi(strtok(NULL," "));
 		char* fileName = strtok(NULL," ");
@@ -121,14 +140,17 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 		FILE *fp;
 		fp = fopen(fileName,"r");
 
+		/*If the file does not exist, send error to client*/
 		if(fp == NULL){
 			printf("File not found. Sending error message to %s:%d\n",client,connectionPort);
 			char* errMsg = "FILE NOT FOUND";
+			charsRead = 0;
 			charsRead = send(establishedConnectionFD,errMsg,14 ,0);
 
 			if(charsRead <0) error("Server: Error sending error msg");
 		}
 
+		/*Otherwise prepare to send file to client*/
 		else{
 			printf("Sending \"%s\" to %s:%d\n",fileName,client,dataPort);
 			char* msg = "Receiving";
@@ -136,17 +158,17 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 
 			if(charsRead < 0) error("Server: Error sending Receiving");
 	
-			char* buffer = malloc(10000000);
+			char* buffer = malloc(10000000);//create buffer for file
 			int buffercount = 0;
 			char c;
 			
+			/*Read each character of file and add it to the buffer*/
 			while(1){
 				
 				c = fgetc(fp);
 			
-				if(c == EOF){
-					printf("testEOF\n");
-					break;}
+				if(c == EOF)
+					break;
 				else{
 				buffer[buffercount] = c;
 				buffercount++;
@@ -154,6 +176,7 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 			}
 
 			int charsWritten = 0;
+			/*Send the buffer*/
 			while(charsWritten < strlen(buffer)){
 				charsWritten += send(dataFD,buffer,strlen(buffer),0);
 	
@@ -161,18 +184,18 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 			}
 
 		
+			/*Send sentinel when file complete*/
 			char* sentinel = "!!!@@@!!!";
 			charsWritten = send(dataFD,sentinel,strlen(sentinel),0);
 			if(charsWritten < 0) error("Server: End Sentinel");
 			
-			free(buffer);
+			free(buffer); //Free the buffer to prevent memory leak
 		}
-
 
 		
 	}
 
-	close(dataFD);
+	close(dataFD); //Close the data port/socket as it is no longer needed
 }
 int main(int argc, char *argv[])
 {

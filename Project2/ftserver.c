@@ -156,11 +156,15 @@ void handleRequest(int establishedConnectionFD,int connectionPort, char client[]
 			int charsWritten = 0;
 			while(charsWritten < strlen(buffer)){
 				charsWritten += send(dataFD,buffer,strlen(buffer),0);
-
+	
 				if(charsWritten <0) error("SERVER: Writing file to socket");
 			}
 
-			charsWritten = send(dataFD,0,0,0);
+		
+			char* sentinel = "!!!@@@!!!";
+			charsWritten = send(dataFD,sentinel,strlen(sentinel),0);
+			if(charsWritten < 0) error("Server: End Sentinel");
+			
 			free(buffer);
 		}
 

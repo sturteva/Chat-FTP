@@ -84,15 +84,19 @@ def receiveData(connectionSocket,dataSocket):
 			exists = os.path.isfile(fileName)
 			if exists:
 				myPID = os.getpid()
-				print ("File exists, adding PID: %d" % (myPID))
-				fileName = fileName + str(myPID)
+				print ("File exists, adding PID to front: %d" % (myPID))
+				fileName = str(myPID) + fileName
 			
 			f = open(fileName,'w+')
 			f.close()
 			f = open(fileName,'a')
 			data = 'test'	
-			while data != 0:	
-				data = theSocket.recv(10000000);
+			while True:	
+				data = theSocket.recv(10000000)
+				if "!!!@@@!!!" in data:
+					newData = data.replace("!!!@@@!!!","")
+					f.write(newData)	
+					break
 				f.write(data);
 			f.close()
 			theSocket.close()			

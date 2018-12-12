@@ -1,0 +1,142 @@
+#!/usr/bin/env python
+#Author: Andrew Sturtevant
+#Description: This is a file transfer client
+
+#Client set-up influenced by: https://pymotw.com/2/socket/tcp.html
+
+import sys
+import socket
+import os
+
+#This will start contact between ftclient and ftserver. Returns the socket or
+#the error
+def initiateContact():
+
+	command = sys.argv[3]
+	
+	#If an invalid command was placed, this will print the statement
+	#return 0, which will tell the driver code that it needs to exit
+	if command != "-g" and command != "-l":
+		print "Invalid Command"
+		return 0
+
+
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	serverName = sys.argv[1]
+	connectionPort = int(sys.argv[2])
+	server_address = (serverName,connectionPort)
+	sock.connect(server_address)
+
+	return sock  
+
+
+#This will make the initial request to the server
+#This also sets up the dataSocket and gets it ready to listen, returning the
+#dataSocket
+def makeRequest(connectionSocket):
+
+	message = ''
+	dataPort = 0
+	command = sys.argv[3]
+	
+	if command == "-l" and len(sys.argv) == 5:
+		dataPort = int(sys.argv[4])
+		message = "%s %d" % (command,dataPort)
+
+	elif command == "-g" and len(sys.argv) == 6:
+		command = sys.argv[3]
+		fileName = sys.argv[4]
+		dataPort = int(sys.argv[5])
+		message = "%s %d %s" % (command,dataPort,fileName)
+	else:
+		print "Not the correct # of arguments"
+
+	#Sending message to server to connect to dataport
+	
+	HOST = ''
+	dataSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+	dataSocket.bind((HOST,dataPort))
+	connectionSocket.send(message)
+	dataSocket.listen(2)
+	
+	return dataSocket
+
+#This will first determine the command that was sent. Then process information
+#correctly
+#Both sockets will need to be setup prior to this function.
+def receiveData(connectionSocket,dataSocket):
+	
+	#If it is a list command, begin acceptin the directory from the server
+	if len(sys.argv) == 5:
+		hostName = sys.argv[1]
+		dataPort = sys.argv[4]
+		theSocket, addr = dataSocket.accept()
+		print ("Receiving directory structure from %s : %s" % (hostName,dataPort))
+		direct = theSocket.recv(70000);
+		print direct
+		theSocket.close()	
+
+	#If it is a get command, it will first listen for if the server HAS
+	#the file and then it will get ready to receive the actual file if it
+	#is there
+	elif len(sys.argv) == 6:
+		hostName = sys.argv[1]
+		connectionPort = sys.argv[2]
+		dataPort = sys.argv[5]
+		fileName = sys.argv[4]
+		sentence = connectionSocket.recv(1024)
+			
+		
+		if "FILE NOT FOUND" in sentence:
+
+			print ("%s:%s says %s" % (hostName,connectionPort,sentence))
+		else:
+			theSocket,addr = dataSocket.accept()
+			print ("Receiving \"%s\" from %s:%s" % (fileName,hostName,dataPort)) 
+			##Checking Directory help found here:
+			#https://therenegadecoder.com/code/how-to-check-if-a-file-exists-in-python/
+			exists = os.path.isfile(fileName)
+
+			#Basically, if it has the file already, it creates a 
+			#duplicate that has the unique PID of this program-run
+			#this will ensure that it SHOULD be unique enough for 
+			#most directories
+			if exists:
+				myPID = os.getpid()
+				print ("File exists, adding PID to front: %d" % (myPID))
+				fileName = str(myPID) + fileName
+			
+			f = open(fileName,'w+')
+			f.close()
+			f = open(fileName,'a')
+			
+			#Contine receiving data until data includes a sentinel
+			#value.	
+			while True:	
+				data = theSocket.recv(10000000)
+
+				#Once sentinel value has been received, remove
+				#it and write last received data.
+				if "!!!@@@!!!" in data:
+					newData = data.replace("!!!@@@!!!","")
+					f.write(newData)	
+					break
+				f.write(data);
+			f.close()
+			theSocket.close()			
+			print "File transfer complete."
+				
+			
+
+#Driver Code
+#NEEDS: We will want to check to ensure that there are 4 arguments from the
+#start.  They will be: Server's Hostname, Connection Port, Command, Data Port
+connectionSocket = initiateContact()
+if connectionSocket == 0:
+	sys.exit()
+
+dataSocket = makeRequest(connectionSocket)
+receiveData(connectionSocket,dataSocket)
+
+connectionSocket.close()
+dataSocket.close()
